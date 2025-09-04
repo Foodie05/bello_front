@@ -1,11 +1,11 @@
 {
-    "name": "cw_blog",
-    "short_name": "cw_blog",
+    "name": "bello_front",
+    "short_name": "bello_front",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "cloudwhale_blog",
+    "description": "A new Flutter project.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -67,6 +67,17 @@ class _ProfileState extends State<Profile> {
       }
     } on DioException catch (e) {
       if (e.response != null && e.response!.data != null) {
+        // 检查是否是token无效的错误（400）
+        if (e.response!.statusCode == 400) {
+          // token无效，清除所有用户数据并跳转到登录页面
+          await UserManager.clearAllUserData();
+          ToastUtil.showError('登录已过期，请重新登录');
+          if (mounted) {
+            context.go('/auth/login');
+          }
+          return;
+        }
+
         var data = e.response!.data;
         var msg = Msg.fromJson(jsonDecode(data));
         ToastUtil.showError(msg.msg);

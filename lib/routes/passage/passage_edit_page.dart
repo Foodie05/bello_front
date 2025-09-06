@@ -2,18 +2,23 @@ import 'package:bello_front/control/custom_button.dart';
 import 'package:bello_front/util/random_string.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
-import 'package:gpt_markdown/gpt_markdown.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:bello_front/request_model/passage/passage_create.dart';
 import 'package:bello_front/request_model/passage/passage_edit.dart';
+import 'package:bello_front/request_model/passage/passage_pic_upload.dart';
 import 'package:bello_front/request_model/msg.dart';
 import 'package:bello_front/route.dart';
 import 'package:bello_front/util/toast_util.dart';
 import 'package:bello_front/widgets/glass_app_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:bello_front/util.dart';
+
+import '../../js_interop.dart';
 
 class PassageEditPage extends StatefulWidget {
   final dynamic passageData; // 可以是PassageCreateRequest或PassageEditRequest
@@ -29,12 +34,14 @@ class _PassageEditPageState extends State<PassageEditPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _bodyController = TextEditingController();
   final TextEditingController _tagController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   bool _isEditMode = false;
   List<String> _tags = [];
   int _selectedLevel = 3; // 默认等级3
   String? _userToken;
   bool _isSending = false;
+  bool _isUploading = false;
   late String _markdownKey;
   @override
   void initState() {
@@ -42,6 +49,24 @@ class _PassageEditPageState extends State<PassageEditPage> {
     _initializeData();
     _loadUserToken();
     _markdownKey = 'initial key';
+    
+    // 监听文本变化，自动滚动到底部
+    _titleController.addListener(_scrollToBottom);
+    _bodyController.addListener(_scrollToBottom);
+    _tagController.addListener(_scrollToBottom);
+  }
+
+  // 滚动到底部
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   // 初始化数据
@@ -90,6 +115,78 @@ class _PassageEditPageState extends State<PassageEditPage> {
     setState(() {
       _tags.remove(tag);
     });
+  }
+
+  // 选择并上传图片
+  Future<void> _uploadImage() async {
+    if (_userToken == null) {
+      ToastUtil.showError('请先登录');
+      return;
+    }
+
+    try {
+      // 使用image_picker选择图片
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+
+      if (image == null) return;
+
+      // 检查文件大小
+      final int fileSize = await image.length();
+      if (fileSize > 15 * 1024 * 1024) { // 15MB限制
+        ToastUtil.showError('图片大小不能超过15MB');
+        return;
+      }
+
+      setState(() {
+        _isUploading = true;
+      });
+
+      // 读取文件为字节数组并转换为base64
+      final List<int> imageBytes = await image.readAsBytes();
+      final String base64Data = base64Encode(imageBytes);
+
+      // 创建上传请求
+      final uploadRequest = PicUploadRequest(
+        token: _userToken!,
+        picData: base64Data,
+      );
+
+      // 发送上传请求
+      final response = await dio.post(
+        '$baseUrl$passagePicUpload',
+        data: uploadRequest.toJson(),
+        options: Options(
+          headers: {'Content-Type': 'application/json'},
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.data);
+        if (responseData != null) {
+          // 上传成功，插入图片markdown语法到编辑器
+          final String imageUrl = responseData['url'];
+          final String markdownImage = '![图片]($imageUrl)';
+          Clipboard.setData(ClipboardData(text: markdownImage));
+          ToastUtil.showSuccess('图片上传成功!内容已经复制到剪贴板，粘贴即可！');
+        } else {
+          ToastUtil.showError('上传失败: 未知错误');
+        }
+      } else {
+        ToastUtil.showError('上传失败: 服务器错误');
+      }
+    } catch (e) {
+      ToastUtil.showError('上传失败: $e');
+    } finally {
+      setState(() {
+        _isUploading = false;
+      });
+    }
   }
 
   // 获取等级文本
@@ -202,9 +299,13 @@ class _PassageEditPageState extends State<PassageEditPage> {
 
   @override
   void dispose() {
+    _titleController.removeListener(_scrollToBottom);
+    _bodyController.removeListener(_scrollToBottom);
+    _tagController.removeListener(_scrollToBottom);
     _titleController.dispose();
     _bodyController.dispose();
     _tagController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -245,7 +346,7 @@ class _PassageEditPageState extends State<PassageEditPage> {
 
                     // Markdown编辑和预览区域
                     SizedBox(
-                      height: 400, // 固定高度
+                      height: 550, // 固定高度
                       child: Row(
                         children: [
                           // 左侧编辑区
@@ -312,11 +413,17 @@ class _PassageEditPageState extends State<PassageEditPage> {
                                           .withOpacity(0.3),
                                     ),
                                     child: SingleChildScrollView(
-                                      child: GptMarkdown(
+                                      controller: _scrollController,
+                                      child: MarkdownBody(
                                         key: Key(_markdownKey),
-                                        _bodyController.text.isEmpty
-                                            ? '预览区域\n\n在左侧输入Markdown内容，这里会实时显示预览效果。'
+                                        data: _bodyController.text.isEmpty
+                                            ? '预览区域\n\n在左侧输入Markdown内容，这里会实时显示预览效果。\n'
+                                            '注意，右上角可以上传添加图片哦！'
                                             : _bodyController.text,
+                                        onTapLink: (text,link,extra){
+                                          open(link??'', '_blank');
+                                        },
+                                        selectable: true,
                                       ),
                                     ),
                                   ),
@@ -518,6 +625,25 @@ class _PassageEditPageState extends State<PassageEditPage> {
               tooltip: themeManager.isDarkMode ? '切换到浅色主题' : '切换到深色主题',
             );
           },
+        ),
+
+        // 图片上传按钮
+        IconButton(
+          onPressed: _isUploading ? null : _uploadImage,
+          icon: _isUploading
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                )
+              : Icon(
+                  Icons.image,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+          tooltip: '上传图片',
         ),
 
         SizedBox(

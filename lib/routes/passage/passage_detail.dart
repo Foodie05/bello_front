@@ -1,3 +1,4 @@
+import 'package:bello_front/js_interop.dart';
 import 'package:bello_front/model/user_profile.dart';
 import 'package:bello_front/request_model/passage/passage_delete.dart';
 import 'package:bello_front/request_model/passage/passage_edit.dart';
@@ -7,10 +8,10 @@ import 'package:bello_front/util/random_string.dart';
 import 'package:bello_front/util/user_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
-import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:bello_front/model/passage.dart';
 import 'package:bello_front/util/toast_util.dart';
 import 'package:flutter/services.dart';
@@ -430,13 +431,13 @@ class _PassageDetailPageState extends State<PassageDetailPage> {
                     margin: const EdgeInsets.only(
                       left: 16,
                       right: 16,
-                      bottom: 300,
+                      bottom: 16,
                     ),
                     padding: const EdgeInsets.only(
                       top: 16,
                       left: 16,
                       right: 16,
-                      bottom: 300,
+                      bottom: 16,
                     ),
                     decoration: BoxDecoration(
                       border: Border.all(
@@ -447,7 +448,13 @@ class _PassageDetailPageState extends State<PassageDetailPage> {
                       ),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: GptMarkdown(key: Key(_markdownKey), _passage!.text),
+                    child: MarkdownBody(
+                        onTapLink: (text,link,extra){
+                          open(link??'', '_blank');
+                        },
+                        key: Key(_markdownKey),
+                        data:_passage!.text,
+                    ),
                   ),
                 ],
               ),

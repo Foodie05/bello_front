@@ -12,6 +12,7 @@ String passageEdit = '/passage/edit';
 String passageGet = '/passage/get';
 String passageDelete = '/passage/delete';
 String passageLabel = '/passage/label';
+String passagePicUpload='/passage/pic_upload';
 
 // 邀请码管理相关路由
 String invitationListRoute = '/mgr/list_invite';

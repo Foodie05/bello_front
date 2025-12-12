@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
@@ -414,16 +415,15 @@ class _PassageEditPageState extends State<PassageEditPage> {
                                     ),
                                     child: SingleChildScrollView(
                                       controller: _scrollController,
-                                      child: MarkdownBody(
+                                      child: GptMarkdown(
                                         key: Key(_markdownKey),
-                                        data: _bodyController.text.isEmpty
+                                        _bodyController.text.isEmpty
                                             ? '预览区域\n\n在左侧输入Markdown内容，这里会实时显示预览效果。\n'
                                             '注意，右上角可以上传添加图片哦！'
                                             : _bodyController.text,
-                                        onTapLink: (text,link,extra){
+                                        onLinkTap: (text,link){
                                           open(link??'', '_blank');
                                         },
-                                        selectable: true,
                                       ),
                                     ),
                                   ),

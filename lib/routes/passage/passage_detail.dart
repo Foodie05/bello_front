@@ -1,4 +1,3 @@
-import 'package:bello_front/js_interop.dart';
 import 'package:bello_front/model/user_profile.dart';
 import 'package:bello_front/request_model/passage/passage_delete.dart';
 import 'package:bello_front/request_model/passage/passage_edit.dart';
@@ -9,6 +8,7 @@ import 'package:bello_front/util/user_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
@@ -18,6 +18,8 @@ import 'package:flutter/services.dart';
 import 'package:bello_front/widgets/glass_app_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:bello_front/util.dart';
+
+import '../../js_interop.dart';
 
 class PassageDetailPage extends StatefulWidget {
   final String passageId;
@@ -423,16 +425,16 @@ class _PassageDetailPageState extends State<PassageDetailPage> {
                     ),
                   ),
 
-                  const SizedBox(height: 8),
-
                   // 文章正文
                   Container(
                     width: MediaQuery.of(context).size.width,
                     margin: const EdgeInsets.only(
+                      top: 16,
                       left: 16,
                       right: 16,
                       bottom: 16,
                     ),
+                    //height: MediaQuery.of(context).size.height-242,
                     padding: const EdgeInsets.only(
                       top: 16,
                       left: 16,
@@ -448,12 +450,12 @@ class _PassageDetailPageState extends State<PassageDetailPage> {
                       ),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: MarkdownBody(
-                        onTapLink: (text,link,extra){
-                          open(link??'', '_blank');
-                        },
-                        key: Key(_markdownKey),
-                        data:_passage!.text,
+                    child: GptMarkdown(
+                      key: Key(_markdownKey),
+                      _passage!.text,
+                      onLinkTap: (text,link){
+                        open(link??'', '_blank');
+                    },
                     ),
                   ),
                 ],
